@@ -568,63 +568,109 @@ func SendSystemMessage(w http.ResponseWriter, req *http.Request) {
 }
 
 func SendRoomMessage(w http.ResponseWriter, req *http.Request) {
+
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		WriteHttpError(400, err.Error(), w)
 		return
 	}
 
-	m, _ := url.ParseQuery(req.URL.RawQuery)
-
-	appid, err := strconv.ParseInt(m.Get("appid"), 10, 64)
+	obj, err := simplejson.NewJson(body)
 	if err != nil {
 		log.Info("error:", err)
-		WriteHttpError(400, "invalid query param", w)
+		WriteHttpError(400, "invalid json format", w)
 		return
 	}
 
-	uid, err := strconv.ParseInt(m.Get("uid"), 10, 64)
+	appid, err := obj.Get("appid").Int64()
 	if err != nil {
 		log.Info("error:", err)
-		WriteHttpError(400, "invalid query param", w)
-		return
-	}
-	room_id, err := strconv.ParseInt(m.Get("room"), 10, 64)
-	if err != nil {
-		log.Info("error:", err)
-		WriteHttpError(400, "invalid query param", w)
-		return
+		WriteHttpError(400, "invalid json format", w)
+		return		
 	}
 
-	persistent, err := strconv.ParseInt(m.Get("persistent"), 10, 64)
+
+	uid, err := obj.Get("uid").Int64()
 	if err != nil {
 		log.Info("error:", err)
-		WriteHttpError(400, "invalid query param", w)
-		return
+		WriteHttpError(400, "invalid json format", w)
+		return		
+	}
+
+
+
+	persistent, err := obj.Get("persistent").Int64()
+	if err != nil {
+		log.Info("error:", err)
+		WriteHttpError(400, "invalid json format", w)
+		return		
 	}
 	
-	room_im := &RoomMessage{new(RTMessage)}
-	room_im.sender = uid
-	room_im.receiver = room_id
-	room_im.content = string(body)
 
-	if persistent == 1 {
-		deliver := GetRoomMessageDeliver(room_im.receiver)
-		deliver.SaveRoomMessage(appid, room_im)
+	content, err := obj.Get("content").String()
+	if err != nil {
+		log.Info("error:", err)
+		WriteHttpError(400, "invalid json format", w)
+		return
 	}
+
+	rooms, err := obj.Get("room_ids").Array()
+	if err != nil {
+		log.Info("error:", err)
+		WriteHttpError(400, "invalid json format", w)
+		return		
+	}
+
+	if len(rooms) == 0 {
+		WriteHttpError(400, "invalid json format", w)
+		return		
+	}
+
+	room_ids := make([]int64, 0, len(rooms))
+	for _, room := range rooms {
+		n, ok := room.(json.Number)
+		if !ok {
+			WriteHttpError(400, "invalid json format", w)
+			return
+		}
+		
+		room_id, err := n.Int64()
+		if err != nil {
+			log.Info("error:", err)
+			WriteHttpError(400, "invalid json format", w)
+			return
+		}
+		room_ids = append(room_ids, room_id)
+	}
+
+	log.Infof("appid:%d uid:%d rooms:%v persistent:%d content:%s",
+		appid, uid, room_ids, persistent, content)
+
+	for _, room_id := range room_ids {
 	
-	msg := &Message{cmd:MSG_ROOM_IM, body:room_im}
-	route := app_route.FindOrAddRoute(appid)
-	clients := route.FindRoomClientSet(room_id)
-	for c, _ := range(clients) {
-		c.wt <- msg
+		room_im := &RoomMessage{new(RTMessage)}
+		room_im.sender = uid
+		room_im.receiver = room_id
+		room_im.content = string(body)
+
+		if persistent == 1 {
+			deliver := GetRoomMessageDeliver(room_im.receiver)
+			deliver.SaveRoomMessage(appid, room_im)
+		}
+		
+		msg := &Message{cmd:MSG_ROOM_IM, body:room_im}
+		route := app_route.FindOrAddRoute(appid)
+		clients := route.FindRoomClientSet(room_id)
+		for c, _ := range(clients) {
+			c.wt <- msg
+		}
+
+		amsg := &AppMessage{appid:appid, receiver:room_id, msg:msg}
+		channel := GetRoomChannel(room_id)
+		channel.PublishRoom(amsg)
 	}
 
-	amsg := &AppMessage{appid:appid, receiver:room_id, msg:msg}
-	channel := GetRoomChannel(room_id)
-	channel.PublishRoom(amsg)
-
-	w.WriteHeader(200)
+	w.WriteHeader(200)	
 }
 
 func SendCustomerMessage(w http.ResponseWriter, req *http.Request) {
