@@ -596,11 +596,23 @@ func SendRoomMessage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	persistent, err := strconv.ParseInt(m.Get("persistent"), 10, 64)
+	if err != nil {
+		log.Info("error:", err)
+		WriteHttpError(400, "invalid query param", w)
+		return
+	}
+	
 	room_im := &RoomMessage{new(RTMessage)}
 	room_im.sender = uid
 	room_im.receiver = room_id
 	room_im.content = string(body)
 
+	if persistent == 1 {
+		deliver := GetRoomMessageDeliver(room_im.receiver)
+		deliver.SaveRoomMessage(appid, room_im)
+	}
+	
 	msg := &Message{cmd:MSG_ROOM_IM, body:room_im}
 	route := app_route.FindOrAddRoute(appid)
 	clients := route.FindRoomClientSet(room_id)

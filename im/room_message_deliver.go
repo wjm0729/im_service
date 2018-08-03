@@ -26,6 +26,7 @@ import "github.com/gomodule/redigo/redis"
 
 type AppRoomMessage struct {
 	appid int64
+	timestamp int
 	*RoomMessage
 }
 
@@ -40,7 +41,8 @@ func NewRoomMessageDeliver() *RoomMessageDeliver {
 }
 
 func (usd *RoomMessageDeliver) SaveRoomMessage(appid int64, msg *RoomMessage) bool {
-	m := &AppRoomMessage{appid, msg}
+	now := int(time.Now().Unix())	
+	m := &AppRoomMessage{appid, now, msg}
 	select {
 	case usd.wt <- m:
 		return true
@@ -57,7 +59,8 @@ func (usd *RoomMessageDeliver) deliver(messages []*AppRoomMessage) {
 	begin := time.Now()	
 	conn.Send("MULTI")	
 	for _, msg := range(messages) {
-		content := fmt.Sprintf("%d\n%d\n%s", msg.sender, msg.receiver, msg.content)
+		content := fmt.Sprintf("%d\n%d\n%d\n%s", msg.sender, msg.receiver,
+			msg.timestamp, msg.content)
 		queue_name := fmt.Sprintf("rooms_%d_%d", msg.appid, msg.receiver)
 		conn.Send("LPUSH", queue_name, content)
 	}
