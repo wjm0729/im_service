@@ -42,7 +42,7 @@ func (client *RoomClient) HandleMessage(msg *Message) {
 	case MSG_LEAVE_ROOM:
 		client.HandleLeaveRoom(msg.body.(*Room))
 	case MSG_ROOM_IM:
-		client.HandleRoomIM(msg.body.(*RoomMessage), msg.seq)
+		client.HandleRoomIM(msg)
 	}
 }
 
@@ -98,7 +98,9 @@ func (client *RoomClient) HandleLeaveRoom(room *Room) {
 	client.room_id = 0
 }
 
-func (client *RoomClient) HandleRoomIM(room_im *RoomMessage, seq int) {
+func (client *RoomClient) HandleRoomIM(msg *Message) {
+	room_im := msg.body.(*RoomMessage)
+	seq := msg.seq
 	if client.uid == 0 {
 		log.Warning("client has't been authenticated")
 		return
@@ -114,9 +116,10 @@ func (client *RoomClient) HandleRoomIM(room_im *RoomMessage, seq int) {
 		log.Infof("room id:%d client:%d, %d is forbidden", room_id, client.appid, client.uid)
 		return
 	}
-
-	deliver := GetRoomMessageDeliver(room_im.receiver)
-	deliver.SaveRoomMessage(client.appid, room_im)
+	if (msg.flag & MESSAGE_FLAG_UNPERSISTENT) == 0 {
+		deliver := GetRoomMessageDeliver(room_im.receiver)
+		deliver.SaveRoomMessage(client.appid, room_im)
+	}
 	
 	m := &Message{cmd:MSG_ROOM_IM, body:room_im}
 	route := app_route.FindOrAddRoute(client.appid)
