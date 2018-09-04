@@ -400,6 +400,7 @@ func StartHttpServer(addr string) {
 	http.HandleFunc("/init_message_queue", InitMessageQueue)
 	http.HandleFunc("/get_offline_count", GetOfflineCount)
 	http.HandleFunc("/dequeue_message", DequeueMessage)
+	http.HandleFunc("/get_room", GetRoom)
 
 	handler := loggingHandler{http.DefaultServeMux}
 	

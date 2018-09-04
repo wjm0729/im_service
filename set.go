@@ -53,3 +53,11 @@ func (set IntSet) Clone() IntSet {
 	}
 	return n
 }
+
+func (set IntSet) ToArray() []int64 {
+	a := make([]int64, 0, len(set))
+	for k, _ := range set {
+		a = append(a, k)
+	}
+	return a
+}

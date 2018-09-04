@@ -813,3 +813,29 @@ func InitMessageQueue(w http.ResponseWriter, req *http.Request) {
 func DequeueMessage(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(200)
 }
+
+
+func GetRoom(w http.ResponseWriter, req *http.Request) {
+	m, _ := url.ParseQuery(req.URL.RawQuery)
+
+	appid, err := strconv.ParseInt(m.Get("appid"), 10, 64)
+	if err != nil {
+		log.Info("error:", err)
+		WriteHttpError(400, "invalid query param", w)
+		return
+	}
+
+	room_id, err := strconv.ParseInt(m.Get("room_id"), 10, 64)
+	if err != nil {
+		log.Info("error:", err)
+		WriteHttpError(400, "invalid query param", w)
+		return
+	}
+	route := app_route.FindOrAddRoute(appid)
+	members := route.GetRoomMembers(room_id)
+	a := members.ToArray()
+
+	resp := make(map[string]interface{})
+	resp["members"] = a
+	WriteHttpObj(resp, w)
+}

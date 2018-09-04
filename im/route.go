@@ -30,6 +30,19 @@ func (route *Route) AddRoomClient(room_id int64, client *Client) {
 	set.Add(client)
 }
 
+func (route *Route) GetRoomMembers(room_id int64) IntSet {
+	route.mutex.Lock()
+	defer route.mutex.Unlock()
+	
+	members := NewIntSet()
+	if set, ok := route.room_clients[room_id]; ok {
+		for c, _ := range(set) {
+			members.Add(c.uid)
+		}
+	}
+	return members
+}
+
 //todo optimise client set clone
 func (route *Route) FindRoomClientSet(room_id int64) ClientSet {
 	route.mutex.Lock()
