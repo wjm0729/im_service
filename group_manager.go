@@ -34,7 +34,9 @@ import log "github.com/golang/glog"
 //同redis的长链接保持5minute的心跳
 const SUBSCRIBE_HEATBEAT = 5*60
 
-
+// 群组管理
+// 启动/检测到变化时 从mysql数据加载群组信息.
+// 通过 redis 的 pubsub 管理群组
 type GroupManager struct {
 	mutex  sync.Mutex
 	groups map[int64]*Group
@@ -411,6 +413,7 @@ func (group_manager *GroupManager) checkActionID() {
 	}
 }
 
+// 注册 redis pub消息
 func (group_manager *GroupManager) RunOnce() bool {
 	t := redis.DialReadTimeout(time.Second*SUBSCRIBE_HEATBEAT)
 	c, err := redis.Dial("tcp", config.redis_address, t)
@@ -430,7 +433,7 @@ func (group_manager *GroupManager) RunOnce() bool {
 	psc := redis.PubSubConn{c}
 	psc.Subscribe("group_create", "group_disband", "group_member_add",
 		"group_member_remove", "group_upgrade", "group_member_mute", group_manager.ping)
-	
+
 	group_manager.checkActionID()
 	for {
 		switch v := psc.Receive().(type) {
@@ -497,7 +500,7 @@ func (group_manager *GroupManager) Ping() {
 	}
 }
 
-
+// 和 redis 保持, 每5分钟一次心跳
 func (group_manager *GroupManager) PingLoop() {
 	for {
 		group_manager.Ping()

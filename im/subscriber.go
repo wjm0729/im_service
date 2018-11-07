@@ -25,7 +25,7 @@ import "sync/atomic"
 import "github.com/gomodule/redigo/redis"
 import log "github.com/golang/glog"
 
-
+// 禁言/解禁: data = "appid,uid,fb"
 func HandleForbidden(data string) {
 	arr := strings.Split(data, ",")
 	if len(arr) != 3 {
@@ -60,7 +60,9 @@ func HandleForbidden(data string) {
 
 	log.Infof("forbidden:%d %d %d client count:%d", 
 		appid, uid, fb, len(clients))
+
 	for c, _ := range(clients) {
+		// 以原子操作修改 client 的字段
 		atomic.StoreInt32(&c.forbidden, int32(fb))
 	}
 }
@@ -83,6 +85,7 @@ func SubscribeRedis() bool {
 	psc := redis.PubSubConn{c}
 	psc.Subscribe("speak_forbidden")
 
+	// redis pub/sub
 	for {
 		switch v := psc.Receive().(type) {
 		case redis.Message:

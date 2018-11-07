@@ -19,7 +19,9 @@
 
 package main
 
-import "os"
+import (
+	"os"
+)
 import "fmt"
 import "bytes"
 import "sync"
@@ -37,16 +39,16 @@ const F_VERSION = 1 << 16 //1.0
 //后台发送普通群消息
 //普通群消息首先保存到临时文件中，之后按照保存到文件中的顺序依次派发
 type GroupMessageDeliver struct {
-	root                string
-	mutex               sync.Mutex //写文件的锁
-	file                *os.File
-	
-	cursor_file         *os.File //不会被并发访问
-	
-	latest_msgid        int64 //最近保存的消息id
-	latest_sended_msgid int64 //最近发送出去的消息id
+	root                string		// 文件根路径
+	mutex               sync.Mutex 	//写文件的锁
+	file                *os.File 	// 保存消息的文件
 
-	wt     chan int64	 //通知有新消息等待发送
+	cursor_file         *os.File 	//记录发送消息的进度 latest_sended_msgid 不会被并发访问
+
+	latest_msgid        int64 		//最近保存的消息id
+	latest_sended_msgid int64 		//最近发送出去的消息id
+
+	wt     chan int64	 			//通知有新消息等待发送
 }
 
 func NewGroupMessageDeliver(root string) *GroupMessageDeliver {
@@ -63,7 +65,7 @@ func NewGroupMessageDeliver(root string) *GroupMessageDeliver {
 	}
 
 	storage.wt = make(chan int64, 10)
-	
+
 	storage.openWriteFile()
 	storage.openCursorFile()
 	storage.readLatestMessageID()
@@ -90,7 +92,7 @@ func (storage *GroupMessageDeliver) openCursorFile() {
 		file_size = 0
 	}
 
-	var cursor int64	
+	var cursor int64
 	if file_size == 0 {
 		err = binary.Write(file, binary.BigEndian, cursor)
 		if err != nil {
@@ -132,6 +134,8 @@ func (storage *GroupMessageDeliver) openWriteFile() {
 	if err != nil {
 		log.Fatal("open file:", err)
 	}
+	// 将文件游标移动到文件的末尾
+	// file_size 为当前游标所在的偏移量 即文件大小
 	file_size, err := file.Seek(0, os.SEEK_END)
 	if err != nil {
 		log.Fatal("seek file")
@@ -197,7 +201,7 @@ func (storage *GroupMessageDeliver) ReadMessage(file *os.File) *Message {
 		log.Info("read file err:", err)
 		return nil
 	}
-	
+
 	msg := ReceiveMessage(file)
 	if msg == nil {
 		return msg
@@ -208,13 +212,13 @@ func (storage *GroupMessageDeliver) ReadMessage(file *os.File) *Message {
 		log.Info("read file err:", err)
 		return nil
 	}
-	
+
 	err = binary.Read(file, binary.BigEndian, &magic)
 	if err != nil {
 		log.Info("read file err:", err)
 		return nil
 	}
-	
+
 	if magic != MAGIC {
 		log.Warning("magic err:", magic)
 		return nil
@@ -262,7 +266,7 @@ func (storage *GroupMessageDeliver) WriteHeader(file *os.File) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	
+
 	pad := make([]byte, HEADER_SIZE-8)
 	n, err := file.Write(pad)
 	if err != nil || n != (HEADER_SIZE-8) {
@@ -277,14 +281,14 @@ func (storage *GroupMessageDeliver) saveMessage(msg *Message) int64 {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	
+
 	buffer := new(bytes.Buffer)
 	binary.Write(buffer, binary.BigEndian, int32(MAGIC))
 
 	body := msg.ToData()
 	var msg_len int32 = MSG_HEADER_SIZE + int32(len(body))
 	binary.Write(buffer, binary.BigEndian, msg_len)
-	
+
 	WriteHeader(int32(len(body)), int32(msg.seq), byte(msg.cmd),
 		byte(msg.version), byte(msg.flag), buffer)
 	buffer.Write(body)
@@ -303,7 +307,7 @@ func (storage *GroupMessageDeliver) saveMessage(msg *Message) int64 {
 
 	log.Info("save message:", Command(msg.cmd), " ", msgid)
 	return msgid
-	
+
 }
 
 func (storage *GroupMessageDeliver) SaveMessage(msg *Message) int64 {
@@ -355,7 +359,7 @@ func (storage *GroupMessageDeliver) sendMessage(appid int64, uid int64, sender i
 		if c.device_ID == device_ID && sender == uid {
 			continue
 		}
-	
+
 		c.EnqueueMessage(msg)
 	}
 
@@ -365,10 +369,10 @@ func (storage *GroupMessageDeliver) sendMessage(appid int64, uid int64, sender i
 func (storage *GroupMessageDeliver) sendGroupMessage(gm *PendingGroupMessage) bool {
 	msg := &IMMessage{sender: gm.sender, receiver: gm.gid, timestamp: gm.timestamp, content: gm.content}
 	m := &Message{cmd: MSG_GROUP_IM, version:DEFAULT_VERSION, body: msg}
-	
+
 	members := gm.members
 	for _, member := range members {
-		
+
 		msgid, err := SaveMessage(gm.appid, member, gm.device_ID, m)
 		if err != nil {
 			log.Errorf("save group member message:%d %d err:%s", err, msg.sender, msg.receiver)
@@ -395,7 +399,7 @@ func (storage *GroupMessageDeliver) sendPendingMessage() {
 	if offset == 0 {
 		offset = HEADER_SIZE
 	}
-	
+
 	_, err := file.Seek(offset, os.SEEK_SET)
 	if err != nil {
 		log.Error("seek file err:", err)
@@ -447,7 +451,7 @@ func (storage *GroupMessageDeliver) truncateFile() {
 func (storage *GroupMessageDeliver) flushPendingMessage() {
 	latest_msgid := atomic.LoadInt64(&storage.latest_msgid)
 	log.Infof("flush pending message latest msgid:%d latest sended msgid:%d",
-		latest_msgid, storage.latest_sended_msgid)	
+		latest_msgid, storage.latest_sended_msgid)
 	if latest_msgid > storage.latest_sended_msgid {
 		storage.sendPendingMessage()
 
@@ -465,24 +469,24 @@ func (storage *GroupMessageDeliver) flushPendingMessage() {
 				storage.truncateFile()
 			}
 		}
-	}	
+	}
 }
 
 func (storage *GroupMessageDeliver) run() {
 	//启动时等待2s检查文件
 	log.Info("group message deliver running")
-	
+
 	select {
 	case <-storage.wt:
-		storage.flushPendingMessage()			
+		storage.flushPendingMessage()
 	case <-time.After(time.Second * 2):
 		storage.flushPendingMessage()
 	}
-	
+
 	for  {
 		select {
 		case <-storage.wt:
-			storage.flushPendingMessage()			
+			storage.flushPendingMessage()
 		case <-time.After(time.Second * 30):
 			storage.flushPendingMessage()
 		}

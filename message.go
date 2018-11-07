@@ -213,6 +213,7 @@ type Message struct {
 	cmd  int
 	seq  int
 	version int
+	// 消息类型 详细见: MESSAGE_FLAG_XXX
 	flag int
 	
 	body interface{}

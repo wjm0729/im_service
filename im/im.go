@@ -54,19 +54,24 @@ var route_channels []*Channel
 //super group route server
 var group_route_channels []*Channel
 
+// App 信息 支持多租户
 var app_route *AppRoute
 var group_manager *GroupManager
 var redis_pool *redis.Pool
 
 var config *Config
+// 统计信息
 var server_summary *ServerSummary
 
+// 客户端消息记录
 var sync_c chan *SyncHistory
+// 群组消息记录
 var group_sync_c chan *SyncGroupHistory
 
 //round-robin
 var current_deliver_index uint64
 var group_message_delivers []*GroupMessageDeliver
+// 敏感词过滤
 var filter *sensitive.Filter
 
 func init() {
@@ -102,16 +107,19 @@ func Listen(f func(net.Conn), port int) {
 		return
 	}
 
+	// 监听连接
 	for {
 		client, err := tcp_listener.AcceptTCP()
 		if err != nil {
 			log.Errorf("accept err:%s", err)
 			return
 		}
+		// 建立连接
 		f(client)
 	}
 }
 
+// 监听端口
 func ListenClient() {
 	Listen(handle_client, config.port)
 }
@@ -464,13 +472,17 @@ func StartHttpServer(addr string) {
 func SyncKeyService() {
 	for {
 		select {
+
 		case s := <- sync_c:
+			// 从 redis 获取 当前用户的最大顺序消息号
 			origin := GetSyncKey(s.AppID, s.Uid)
 			if s.LastMsgID > origin {
 				log.Infof("save sync key:%d %d %d", s.AppID, s.Uid, s.LastMsgID)
+				// 记录顺序号
 				SaveSyncKey(s.AppID, s.Uid, s.LastMsgID)
 			}
 			break
+
 		case s := <- group_sync_c:
 			origin := GetGroupSyncKey(s.AppID, s.Uid, s.GroupID)
 			if s.LastMsgID > origin {
@@ -513,6 +525,7 @@ func main() {
 	redis_pool = NewRedisPool(config.redis_address, config.redis_password, 
 		config.redis_db)
 
+	// gorpc client
 	rpc_clients = make([]*gorpc.DispatcherClient, 0)
 	for _, addr := range(config.storage_rpc_addrs) {
 		c := &gorpc.Client{
@@ -533,6 +546,7 @@ func main() {
 		rpc_clients = append(rpc_clients, dc)
 	}
 
+	// 用于组信息的 rpc
 	if len(config.group_storage_rpc_addrs) > 0 {
 		group_rpc_clients = make([]*gorpc.DispatcherClient, 0)
 		for _, addr := range(config.group_storage_rpc_addrs) {
@@ -556,6 +570,7 @@ func main() {
 		group_rpc_clients = rpc_clients
 	}
 
+	// app 通道
 	route_channels = make([]*Channel, 0)
 	for _, addr := range(config.route_addrs) {
 		channel := NewChannel(addr, DispatchAppMessage, DispatchGroupMessage, DispatchRoomMessage)
@@ -564,6 +579,7 @@ func main() {
 	}
 
 	if len(config.group_route_addrs) > 0 {
+		// 分组通道
 		group_route_channels = make([]*Channel, 0)
 		for _, addr := range(config.group_route_addrs) {
 			channel := NewChannel(addr, DispatchAppMessage, DispatchGroupMessage, DispatchRoomMessage)
@@ -590,11 +606,16 @@ func main() {
 		deliver.Start()
 		group_message_delivers[i] = deliver
 	}
-	
+
+	// 监听 redis pub消息 (禁言)
 	go ListenRedis()
+
+	// 处理消息读取确认信息(QoS机制)
+	// 每条消息都有一个序号(服务器保证自增顺序), 客户端收到后回复确认信息, 服务器持久化到 redis
 	go SyncKeyService()
 	
 	go StartHttpServer(config.http_listen_address)
+
 	StartRPCServer(config.rpc_listen_address)
 
 	go StartSocketIO(config.socket_io_address, config.tls_address, 
@@ -603,6 +624,9 @@ func main() {
 	if config.ssl_port > 0 && len(config.cert_file) > 0 && len(config.key_file) > 0 {
 		go ListenSSL(config.ssl_port, config.cert_file, config.key_file)
 	}
+
+	// 开启 socket 监听
 	ListenClient()
+
 	log.Infof("exit")
 }

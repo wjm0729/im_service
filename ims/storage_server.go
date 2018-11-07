@@ -196,9 +196,12 @@ func ListenRPCClient() {
 
 func main() {
 	fmt.Printf("Version:     %s\nBuilt:       %s\nGo version:  %s\nGit branch:  %s\nGit commit:  %s\n", VERSION, BUILD_TIME, GO_VERSION, GIT_BRANCH, GIT_COMMIT_ID)
-	
+	// 初始化随机种子
 	rand.Seed(time.Now().UnixNano())
+	// 设置并发数
 	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	// 参数解析
 	flag.Parse()
 	if len(flag.Args()) == 0 {
 		fmt.Println("usage: ims config")

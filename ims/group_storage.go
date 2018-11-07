@@ -33,6 +33,7 @@ type GroupID struct {
 	gid    int64
 }
 
+// 群组消息存储器
 type GroupStorage struct {
 	*StorageFile
 
@@ -180,6 +181,7 @@ func (storage *GroupStorage) createGroupIndex() {
 	log.Info("create group message index end:", time.Now().UnixNano())
 }
 
+// 恢复群组消息索引
 func (storage *GroupStorage) repairGroupIndex() {
 	log.Info("repair group message index begin:", time.Now().UnixNano())
 
@@ -244,6 +246,8 @@ func (storage *GroupStorage) readGroupIndex() bool {
 		return false
 	}
 	defer file.Close()
+
+	// 3*8
 	const INDEX_SIZE = 24
 	data := make([]byte, INDEX_SIZE*1000)
 

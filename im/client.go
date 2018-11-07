@@ -25,6 +25,7 @@ import "sync/atomic"
 import log "github.com/golang/glog"
 import "container/list"
 
+// 客户端连接
 type Client struct {
 	Connection//必须放在结构体首部
 	*PeerClient
@@ -40,6 +41,7 @@ func NewClient(conn interface{}) *Client {
 	//初始化Connection
 	client.conn = conn // conn is net.Conn or engineio.Conn
 
+	// 强制类型转换
 	if net_conn, ok := conn.(net.Conn); ok {
 		addr := net_conn.LocalAddr()
 		if taddr, ok := addr.(*net.TCPAddr); ok {
@@ -229,7 +231,7 @@ func (client *Client) HandleACK(ack *MessageACK) {
 	log.Info("ack:", ack.seq)
 }
 
-//发送等待队列中的消息
+// 一次性发送等待队列中的全部消息
 func (client *Client) SendMessages(seq int) int {
 	var messages *list.List
 	client.mutex.Lock()
@@ -279,6 +281,7 @@ func (client *Client) Write() {
 			//以当前客户端所用版本号发送消息
 			vmsg := &Message{msg.cmd, seq, client.version, msg.flag, msg.body}
 			client.send(vmsg)
+
 		case messages := <- client.pwt:
 			for _, msg := range(messages) {
 				if msg.cmd == MSG_RT || msg.cmd == MSG_IM || msg.cmd == MSG_GROUP_IM {

@@ -76,6 +76,8 @@ func (client *GroupClient) HandleGroupIMMessage(message *Message) {
 		log.Warningf("im message sender:%d client uid:%d\n", msg.sender, client.uid)
 		return
 	}
+
+	// 文本消息
 	if message.flag & MESSAGE_FLAG_TEXT != 0 {
 		FilterDirtyWord(msg)
 	}

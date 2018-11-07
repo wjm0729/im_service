@@ -25,6 +25,7 @@ import "sync"
 import log "github.com/golang/glog"
 
 type Subscriber struct {
+	// key: uid, value: count|onlineCount (低16位表示总数量 高16位表示online的数量)
 	uids map[int64]int
 	room_ids map[int64]int
 }
@@ -36,6 +37,8 @@ func NewSubscriber() *Subscriber {
 	return s
 }
 
+// RouteServer
+// 负责处理 im 与 imr 之间的通信.
 type Channel struct {
 	addr            string
 	wt              chan *Message
@@ -62,6 +65,7 @@ func NewChannel(addr string, f func(*AppMessage),
 }
 
 //返回添加前的计数
+//count: 注册连接数量, online: 在线连接数 (当前账号)
 func (channel *Channel) AddSubscribe(appid, uid int64, online bool) (int, int) {
 	channel.mutex.Lock()
 	defer channel.mutex.Unlock()
@@ -70,12 +74,13 @@ func (channel *Channel) AddSubscribe(appid, uid int64, online bool) (int, int) {
 		subscriber = NewSubscriber()
 		channel.subscribers[appid] = subscriber
 	}
+
 	//不存在时count==0
 	count := subscriber.uids[uid]
 
 	//低16位表示总数量 高16位表示online的数量
-	c1 := count&0xffff
-	c2 := count>>16&0xffff
+	c1 := count & 0xffff
+	c2 := count >> 16 & 0xffff
 
 	if online {
 		c2 += 1

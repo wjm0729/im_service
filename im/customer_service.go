@@ -34,6 +34,7 @@ type Store struct {
 	mode     int
 }
 
+// 客户系统
 type CustomerService struct {
 	mutex sync.Mutex
 	stores map[int64]*Store

@@ -32,6 +32,7 @@ const CLIENT_TIMEOUT = (60 * 6)
 //待发送的消息数量限制
 const MESSAGE_QUEUE_LIMIT = 1000
 
+// tcp 连接
 type Connection struct {
 	conn   interface{}
 	closed int32
@@ -42,9 +43,11 @@ type Connection struct {
 
 	sync_count int64 //点对点消息同步计数，用于判断是否是首次同步
 	tc     int32 //write channel timeout count
+	// 待发送消息管道
 	wt     chan *Message
+	// 非阻塞消息的一个帮助管道
 	lwt    chan int
-	//离线消息
+	// 离线消息
 	pwt    chan []*Message
 	
 	//客户端协议版本号
@@ -260,6 +263,7 @@ func (client *Connection) send(msg *Message) {
 			log.Info("can't write data to blocked socket")
 			return
 		}
+		// 设置发送超时
 		conn.SetWriteDeadline(time.Now().Add(60 * time.Second))
 		err := SendMessage(conn, msg)
 		if err != nil {

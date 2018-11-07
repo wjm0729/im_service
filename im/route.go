@@ -3,10 +3,12 @@ package main
 import "sync"
 import log "github.com/golang/glog"
 
-
+// 租户信息
 type Route struct {
 	appid  int64
+	// 锁
 	mutex   sync.Mutex
+	// 支持一个用户多个端的情况
 	clients map[int64]ClientSet
 	room_clients map[int64]ClientSet
 }

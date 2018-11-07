@@ -58,6 +58,7 @@ func ReadHeader(buff []byte) (int, int, int, int, int) {
 	var length int32
 	var seq int32
 	buffer := bytes.NewBuffer(buff)
+	// 根据第三个指针参数 data的长度读取数据
 	binary.Read(buffer, binary.BigEndian, &length)
 	binary.Read(buffer, binary.BigEndian, &seq)
 	cmd, _ := buffer.ReadByte()

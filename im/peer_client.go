@@ -22,11 +22,13 @@ import "time"
 import "sync/atomic"
 import log "github.com/golang/glog"
 
+// 客户端封装
 type PeerClient struct {
 	*Connection
 }
 
 func (client *PeerClient) Login() {
+	// 路由服的连接
 	channel := GetChannel(client.uid)
 	
 	channel.Subscribe(client.appid, client.uid, client.online)

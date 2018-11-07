@@ -22,7 +22,7 @@ package main
 import "time"
 import log "github.com/golang/glog"
 
-
+// 客户管理连接
 type CustomerClient struct {
 	*Connection
 }

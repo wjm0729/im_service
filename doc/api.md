@@ -6,8 +6,8 @@
     field:
         user_id:用户id
         app_id:应用id
-
-
+        notification_on 
+        forbidden
 
 #群组通知内容格式:
 
@@ -86,3 +86,6 @@ channel名:group_member_remove
 channel名:group_upgrade
 内容格式:"群组id(整型),appid(整型),1"
 
+6. 群内禁言
+channel名:group_member_mute
+内容格式:"群组id,成员id,0/1"

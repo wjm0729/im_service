@@ -28,17 +28,19 @@ import "bytes"
 import "encoding/binary"
 import log "github.com/golang/glog"
 
-
+// 标识一个用户
 type UserID struct {
 	appid  int64
 	uid    int64
 }
 
+// 用户索引信息
 type UserIndex struct {
 	last_id int64	
 	last_peer_id int64
 }
 
+// 用户消息存储器
 //在取离线消息时，可以对群组消息和点对点消息分别获取，
 //这样可以做到分别控制点对点消息和群组消息读取量，避免单次读取超量的离线消息
 type PeerStorage struct {
@@ -380,7 +382,7 @@ func (storage *PeerStorage) createPeerIndex() {
 	log.Info("create message index end:", time.Now().UnixNano())
 }
 
-
+// 恢复点对点消息索引信息
 func (storage *PeerStorage) repairPeerIndex() {
 	log.Info("repair message index begin:", time.Now().UnixNano())
 
@@ -448,10 +450,13 @@ func (storage *PeerStorage) readPeerIndex() bool {
 		return false
 	}
 	defer file.Close()
+
+	// 索引字节数: 索引包含 4个 int64, 4*8 = 32
 	const INDEX_SIZE = 32
 	data := make([]byte, INDEX_SIZE*1000)
 
 	for {
+		// n 为读到的字节数, 一次最多读1000个索引
 		n, err := file.Read(data)
 		if err != nil {
 			if err != io.EOF {
@@ -459,6 +464,7 @@ func (storage *PeerStorage) readPeerIndex() bool {
 			}
 			break
 		}
+		// 整数个索引
 		n = n - n%INDEX_SIZE
 		buffer := bytes.NewBuffer(data[:n])
 		for i := 0; i < n/INDEX_SIZE; i++ {
@@ -495,7 +501,7 @@ func (storage *PeerStorage) clonePeerIndex() map[UserID]*UserIndex {
 }
 
 
-//appid uid msgid = 24字节
+//appid uid last_id last_peer_id = 32 字节
 func (storage *PeerStorage) savePeerIndex(message_index  map[UserID]*UserIndex ) {
 	path := fmt.Sprintf("%s/peer_index_t", storage.root)
 	log.Info("write peer message index path:", path)
