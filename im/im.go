@@ -248,6 +248,7 @@ func SaveGroupMessage(appid int64, gid int64, device_id int64, msg *Message) (in
 	return msgid, nil
 }
 
+// rpc 调用保存消息到 ims
 func SaveMessage(appid int64, uid int64, device_id int64, m *Message) (int64, error) {
 	dc := GetStorageRPCClient(uid)
 	

@@ -1,6 +1,6 @@
 #token的格式
 
-    连接im服务器token存储在redis的hash对象中,脱离API服务器测试时，可以手工生成。
+    连接im服务器token存储在redis的hash对象中, 脱离API服务器测试时，可以手工生成。
     $token就是客户端需要获得的, 用来连接im服务器的认证信息。
     key:access_token_$token
     field:

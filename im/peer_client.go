@@ -149,6 +149,7 @@ func (client *PeerClient) HandleSyncKey(sync_key *SyncKey) {
 	}
 }
 
+// IM 消息
 func (client *PeerClient) HandleIMMessage(message *Message) {
 	msg := message.body.(*IMMessage)
 	seq := message.seq
@@ -161,12 +162,16 @@ func (client *PeerClient) HandleIMMessage(message *Message) {
 		log.Warningf("im message sender:%d client uid:%d\n", msg.sender, client.uid)
 		return
 	}
+	// 敏感词处理
 	if message.flag & MESSAGE_FLAG_TEXT != 0 {
 		FilterDirtyWord(msg)
 	}
+
 	msg.timestamp = int32(time.Now().Unix())
+
 	m := &Message{cmd: MSG_IM, version:DEFAULT_VERSION, body: msg}
 
+	// 持久化到接收方的消息列表
 	msgid, err := SaveMessage(client.appid, msg.receiver, client.device_ID, m)
 	if err != nil {
 		log.Errorf("save peer message:%d %d err:", msg.sender, msg.receiver, err)

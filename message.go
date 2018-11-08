@@ -209,6 +209,8 @@ type IVersionMessage interface {
 	FromData(version int, buff []byte) bool
 }
 
+//Message: magic(4byte)+head(12byte)+body(len)+magic(4byte)
+//head 结构 len(4byte) + seq(4byte) + cmd(1byte) + version(1byte) + flag(1byte)
 type Message struct {
 	cmd  int
 	seq  int

@@ -27,8 +27,11 @@ import "errors"
 import "encoding/hex"
 
 //平台号
+// ios 平台号
 const PLATFORM_IOS = 1
+// Android 平台
 const PLATFORM_ANDROID = 2
+// Web 平台
 const PLATFORM_WEB = 3
 
 const DEFAULT_VERSION = 1

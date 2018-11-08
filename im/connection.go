@@ -193,7 +193,7 @@ func (client *Connection) EnqueueNonBlockMessage(msg *Message) bool {
 	return true
 }
 
-
+// 给客户端发送消息, 这里的做法是先将消息写入client 的 wt队列, 然后由 write goroutine 实际发送
 func (client *Connection) EnqueueMessage(msg *Message) bool {
 	closed := atomic.LoadInt32(&client.closed)
 	if closed > 0 {

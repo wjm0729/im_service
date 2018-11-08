@@ -3,7 +3,7 @@ package main
 import "sync"
 import log "github.com/golang/glog"
 
-// 租户信息
+// app信息
 type Route struct {
 	appid  int64
 	// 锁
@@ -62,7 +62,7 @@ func (route *Route) RemoveRoomClient(room_id int64, client *Client) bool {
 func (route *Route) AddClient(client *Client) {
 	route.mutex.Lock()
 	defer route.mutex.Unlock()
-	set, ok := route.clients[client.uid]; 
+	set, ok := route.clients[client.uid]
 	if !ok {
 		set = NewClientSet()
 		route.clients[client.uid] = set

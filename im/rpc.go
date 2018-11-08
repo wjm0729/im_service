@@ -459,6 +459,7 @@ func LoadHistoryMessage(w http.ResponseWriter, req *http.Request) {
 	log.Info("load history message success")
 }
 
+// 获取离线消息条数
 func GetOfflineCount(w http.ResponseWriter, req *http.Request){
 	m, _ := url.ParseQuery(req.URL.RawQuery)
 

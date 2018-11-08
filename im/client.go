@@ -122,14 +122,15 @@ func (client *Client) HandleClientClosed() {
 	client.PeerClient.Logout()
 }
 
+// 处理客户端的消息
 func (client *Client) HandleMessage(msg *Message) {
 	log.Info("msg cmd:", Command(msg.cmd))
 	switch msg.cmd {
-	case MSG_AUTH_TOKEN:
+	case MSG_AUTH_TOKEN: // 登录
 		client.HandleAuthToken(msg.body.(*AuthenticationToken), msg.version)
-	case MSG_ACK:
+	case MSG_ACK:		 // 消息确认
 		client.HandleACK(msg.body.(*MessageACK))
-	case MSG_PING:
+	case MSG_PING:		 // 心跳
 		client.HandlePing()
 	}
 
@@ -158,6 +159,7 @@ func (client *Client) HandleAuthToken(login *AuthenticationToken, version int) {
 	}
 
 	var err error
+	// 从 redis 获取 token 信息
 	appid, uid, fb, on, err := client.AuthToken(login.token)
 	if err != nil {
 		log.Infof("auth token:%s err:%s", login.token, err)
@@ -172,7 +174,9 @@ func (client *Client) HandleAuthToken(login *AuthenticationToken, version int) {
 		return
 	}
 
+	// 非 web 端需要判断设备号
 	if login.platform_id != PLATFORM_WEB && len(login.device_id) > 0{
+		// 获得设备序号
 		client.device_ID, err = GetDeviceID(login.device_id, int(login.platform_id))
 		if err != nil {
 			log.Info("auth token uid==0")
@@ -201,13 +205,16 @@ func (client *Client) HandleAuthToken(login *AuthenticationToken, version int) {
 		login.token, client.appid, client.uid, client.device_id,
 		client.device_ID, client.forbidden, client.notification_on, client.online)
 
+	// 给客户端发成功消息
 	msg := &Message{cmd: MSG_AUTH_STATUS, version:version, body: &AuthenticationStatus{0, client.public_ip}}
 	client.EnqueueMessage(msg)
 
+	// 将连接加入本地 AppRoute
 	client.AddClient()
-
+	// 将连接信息同步到 imr
 	client.PeerClient.Login()
 
+	// 在线计数
 	CountDAU(client.appid, client.uid)
 	atomic.AddInt64(&server_summary.nclients, 1)
 }

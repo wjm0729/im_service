@@ -21,6 +21,7 @@ package main
 
 import "sync"
 
+// app管理
 type AppRoute struct {
 	mutex sync.Mutex
 	apps  map[int64]*Route

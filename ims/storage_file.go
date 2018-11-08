@@ -202,6 +202,7 @@ func (storage *StorageFile) getFile(block_NO int) *os.File {
 	return file
 }
 
+//从文件的当前位置读取一个 message
 func (storage *StorageFile) ReadMessage(file *os.File) *Message {
 	//校验消息起始位置的magic
 	var magic int32
@@ -233,6 +234,9 @@ func (storage *StorageFile) ReadMessage(file *os.File) *Message {
 	return msg
 }
 
+// 根据消息 id 读取消息.
+// 消息 id: 是当前消息在所有文件块中的总偏移量
+// 这样读取一个消息一次磁盘io就可以完成
 func (storage *StorageFile) LoadMessage(msg_id int64) *Message {
 	storage.mutex.Lock()
 	defer storage.mutex.Unlock()
@@ -245,6 +249,7 @@ func (storage *StorageFile) LoadMessage(msg_id int64) *Message {
 		return nil
 	}
 
+	// 从文件头开始将游标设置到 offset 位置.
 	_, err := file.Seek(int64(offset), os.SEEK_SET)
 	if err != nil {
 		log.Warning("seek file")
@@ -314,6 +319,7 @@ func (storage *StorageFile) saveMessage(msg *Message) int64 {
 	binary.Write(buffer, binary.BigEndian, int32(MAGIC))
 	buf := buffer.Bytes()
 
+	// 控制文件大小
 	if msgid+int64(len(buf)) > BLOCK_SIZE {
 		err = storage.file.Sync()
 		if err != nil {
@@ -339,11 +345,12 @@ func (storage *StorageFile) saveMessage(msg *Message) int64 {
 	}
 	storage.dirty = true
 
+	// 消息 id: 其实就是当前消息在所有文件块中的总偏移量
 	msgid = int64(storage.block_NO)*BLOCK_SIZE + msgid
+	// 写入主从同步队列
 	master.ewt <- &EMessage{msgid: msgid, msg: msg}
 	log.Info("save message:", Command(msg.cmd), " ", msgid)
 	return msgid
-
 }
 
 func (storage *StorageFile) SaveMessage(msg *Message) int64 {

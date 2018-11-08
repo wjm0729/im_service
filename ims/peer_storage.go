@@ -60,6 +60,7 @@ func NewPeerStorage(f *StorageFile) *PeerStorage {
 func (storage *PeerStorage) SavePeerMessage(appid int64, uid int64, device_id int64, msg *Message) int64 {
 	storage.mutex.Lock()
 	defer storage.mutex.Unlock()
+	// 原始消息存盘
 	msgid := storage.saveMessage(msg)
 
 	last_id, last_peer_id := storage.getLastMessageID(appid, uid)
@@ -70,12 +71,15 @@ func (storage *PeerStorage) SavePeerMessage(appid int64, uid int64, device_id in
 	if storage.isGroupMessage(msg) {
 		flag = MESSAGE_FLAG_GROUP
 	}
+
+	// 索引存盘, 防止索引没有保存的情况下可以通过重建索引来恢复
 	m := &Message{cmd:MSG_OFFLINE_V2, flag:flag, body:off}
 	last_id = storage.saveMessage(m)
 
 	if !storage.isGroupMessage(msg) {
 		last_peer_id = last_id
 	}
+
 	storage.setLastMessageID(appid, uid, last_id, last_peer_id)
 	return msgid
 }
@@ -268,6 +272,7 @@ func (client *PeerStorage) isGroupMessage(msg *Message) bool {
 	return msg.cmd == MSG_GROUP_IM || msg.flag & MESSAGE_FLAG_GROUP != 0
 }
 
+// TODO 想办法得到所有消息的发送者, 这样就可以知道每个会话的离线消息数量了.
 func (client *PeerStorage) isSender(msg *Message, appid int64, uid int64) bool {
 	if msg.cmd == MSG_IM || msg.cmd == MSG_GROUP_IM {
 		m := msg.body.(*IMMessage)
@@ -291,16 +296,19 @@ func (client *PeerStorage) isSender(msg *Message, appid int64, uid int64) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
-
 func (storage *PeerStorage) GetNewCount(appid int64, uid int64, last_received_id int64) int {
+	// 当前用户的最新未读消息 id
 	last_id, _ := storage.GetLastMessageID(appid, uid)
 
 	count := 0
 	log.Infof("last id:%d last received id:%d", last_id, last_received_id)
 
+	// 从后向前遍历索引, 获得 msgid > last_received_id 的消息条数 count.
+	// 这里可能涉及 count 次磁盘操作. 存在优化空间.
 	msgid := last_id
 	for ; msgid > 0; {
 		msg := storage.LoadMessage(msgid)
@@ -323,10 +331,13 @@ func (storage *PeerStorage) GetNewCount(appid int64, uid int64, last_received_id
 			break
 		}
 
+		// 不是自己发的
 		if !storage.isSender(msg, appid, uid) {
 			count += 1
 			break
 		}
+
+		// 下一条消息的 msgid
 		msgid = off.prev_msgid
 	}
 
