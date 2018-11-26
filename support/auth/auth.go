@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	log "github.com/golang/glog"
 	"github.com/gomodule/redigo/redis"
 	"io/ioutil"
 	"math/rand"
@@ -78,6 +79,10 @@ type AuthReq struct {
 	Platform_id int    `json:"platform_id"`
 }
 
+type GrantResp struct {
+	Data AuthResp `json:"data"`
+}
+
 type AuthResp struct {
 	Token string `json:"token"`
 }
@@ -88,14 +93,14 @@ func token(w http.ResponseWriter, req *http.Request) {
 
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		fmt.Println("request error")
+		log.Fatal("request error")
 		return
 	}
 
 	var authReq AuthReq
 	json.Unmarshal(body, &authReq)
 
-	fmt.Println("auth Req", authReq)
+	log.Info("auth Req %s", authReq)
 
 	// token
 	has := md5.Sum([]byte(authReq.Device_id + authReq.User_name))
@@ -109,6 +114,39 @@ func token(w http.ResponseWriter, req *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	bytes, err := json.Marshal(AuthResp{Token: token})
+
+	w.Write(bytes)
+}
+
+
+
+func grant(w http.ResponseWriter, req *http.Request) {
+	conn := redis_pool.Get()
+	defer conn.Close()
+
+	body, err := ioutil.ReadAll(req.Body)
+	if err != nil {
+		log.Fatal("request error")
+		return
+	}
+
+	var authReq AuthReq
+	json.Unmarshal(body, &authReq)
+
+	log.Info("auth Req %s", authReq)
+
+	// token
+	has := md5.Sum([]byte(string(int64(time.Now().Nanosecond()) + authReq.Uid)))
+	token := fmt.Sprintf("%x", has)
+
+	conn.Do("HMSET", fmt.Sprintf("access_token_%s", token),
+		"app_id", authReq.Platform_id,
+		"user_id", authReq.Uid,
+		"notification_on", "1",
+		"forbidden", "0")
+
+	w.Header().Set("Content-Type", "application/json")
+	bytes, err := json.Marshal(GrantResp{Data: AuthResp{Token: token}})
 
 	w.Write(bytes)
 }
@@ -134,6 +172,9 @@ func main() {
 
 	redis_pool = NewRedisPool(config.redis_address, config.redis_password, config.redis_db)
 
+	log.Info("auth service start")
+
 	http.HandleFunc("/auth/token", token)
+	http.HandleFunc("/auth/grant", grant)
 	http.ListenAndServe(fmt.Sprintf(":%d", config.port), nil)
 }

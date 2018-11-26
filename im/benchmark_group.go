@@ -20,7 +20,8 @@ const PORT = 23000
 const APP_ID = 7
 const APP_KEY = "sVDIlIiDUm7tWPYWhi6kfNbrqui3ez44"
 const APP_SECRET = "0WiCxAU1jh76SbgaaFC7qIaBPm2zkyM1"
-const URL = "http://127.0.0.1:23002"
+// 临时的 auth
+const URL = "http://127.0.0.1"
 
 
 var concurrent int
@@ -219,14 +220,12 @@ func main() {
 	c = make(chan bool, 100)
 	u := int64(13635273140)
 
-	//171(5000)  173(2000)
+	// 貌似需要创建 group
+	// 171(5000)  173(2000)
 	gid := int64(171)
 
-	//test_send(u, gid)
-	//return
-
-
-
+	// test_send(u, gid)
+	// return
 
 	conns := make([]*net.TCPConn, 0, 1000)
 
@@ -246,6 +245,7 @@ func main() {
 	for i := 0; i < concurrent; i++ {
 		go send(u+int64(i), gid, conns[i])
 	}
+
 	for i := 0; i < recv_count; i++ {
 		go recv(u+ int64(concurrent+i) , gid, conns[i+concurrent])
 	}

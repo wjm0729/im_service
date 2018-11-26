@@ -509,7 +509,10 @@ func (group_manager *GroupManager) PingLoop() {
 }
 
 func (group_manager *GroupManager) Start() {
+	// 从数据库加载 group 信息
 	group_manager.load()
+	// 监听 redis 信息修改 group 信息
 	go group_manager.Run()
+	// 和 redis 保持, 每5分钟一次心跳
 	go group_manager.PingLoop()
 }

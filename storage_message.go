@@ -227,6 +227,7 @@ func (batch *MessageBatch) FromData(buff []byte) bool {
 }
 
 //兼容性
+//貌似已经废弃, 改用 OfflineMessage2
 type OfflineMessage struct {
 	appid    int64
 	receiver int64

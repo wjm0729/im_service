@@ -22,7 +22,7 @@ import "bytes"
 import "encoding/binary"
 
 //路由服务器消息
-const MSG_SUBSCRIBE = 130
+const MSG_SUBSCRIBE = 130	// 订阅
 const MSG_UNSUBSCRIBE = 131
 const MSG_PUBLISH = 132
 

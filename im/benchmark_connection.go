@@ -12,7 +12,7 @@ import "encoding/base64"
 import "github.com/gomodule/redigo/redis"
 
 const APPID = 7
-const REDIS_HOST = "127.0.0.1:6379"
+const REDIS_HOST = "10.0.0.90:6379"
 const REDIS_PASSWORD = ""
 const REDIS_DB = 0
 
@@ -107,11 +107,9 @@ func receive(uid int64) {
 
 	conn, err := net.DialTCP("tcp4", &laddr, &addr)
 	if err != nil {
-		log.Println("connect error")
-
+		log.Println("connect error", uid, addr, laddr)
 		return
 	}
-
 
 	token, err := GenerateRandomString(32)
 	if err != nil {
@@ -188,6 +186,7 @@ func receive_loop(uid int64) {
 	}
 }
 
+// ./benchmark_connection -first=1 -last=100
 func main() {
 	runtime.GOMAXPROCS(4)
 	rand.Seed(time.Now().Unix())

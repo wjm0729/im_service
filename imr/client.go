@@ -176,17 +176,18 @@ func (client *Client) HandlePublish(amsg *AppMessage) {
 	}
 	
 	if offline {
-		//用户不在线,推送消息到终端
-		if cmd == MSG_IM {
+		// 用户不在线,[推送]消息到终端
+		// 需要第三方推送应用将消息消费掉. 这里只负责把消息放到 redis 队列里面
+		if cmd == MSG_IM {// 点对点消息
 			client.PublishPeerMessage(amsg.appid, amsg.msg.body.(*IMMessage))
-		} else if cmd == MSG_GROUP_IM {
+		} else if cmd == MSG_GROUP_IM {// 群消息
 			client.PublishGroupMessage(amsg.appid, []int64{amsg.receiver},
 				amsg.msg.body.(*IMMessage))
 		} else if cmd == MSG_CUSTOMER || 
-			cmd == MSG_CUSTOMER_SUPPORT {
+			cmd == MSG_CUSTOMER_SUPPORT {// 客服消息
 			client.PublishCustomerMessage(amsg.appid, amsg.receiver, 
 				amsg.msg.body.(*CustomerMessage), amsg.msg.cmd)
-		} else if cmd == MSG_SYSTEM {
+		} else if cmd == MSG_SYSTEM {// 系统消息
 			sys := amsg.msg.body.(*SystemMessage)
 			if config.is_push_system {
 				client.PublishSystemMessage(amsg.appid, amsg.receiver, sys.notification)

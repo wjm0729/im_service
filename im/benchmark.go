@@ -14,56 +14,66 @@ import "crypto/md5"
 import "encoding/json"
 import "github.com/bitly/go-simplejson"
 
+// im 地址信息
 const HOST = "127.0.0.1"
 const PORT = 23000
 
 const APP_ID = 7
 const APP_KEY = "sVDIlIiDUm7tWPYWhi6kfNbrqui3ez44"
 const APP_SECRET = "0WiCxAU1jh76SbgaaFC7qIaBPm2zkyM1"
-const URL = "http://192.168.33.10:5000"
+// auth 地址
+const AUTH_URL = "http://api.gobelieve.io/auth/token"
 
-
+// 并发数
 var concurrent int
 var count int
 var c chan bool
 
 func init() {
-	flag.IntVar(&concurrent, "c", 10, "concurrent number")
-	flag.IntVar(&count, "n", 100000, "request number")
+	flag.IntVar(&concurrent, "c", 4, "concurrent number")
+	flag.IntVar(&count, "n", 10000, "request number")
 }
 
-
+// 登录流程
 func login(uid int64) string {
-	url := URL + "/auth/grant"
+	url := AUTH_URL
 	secret := fmt.Sprintf("%x", md5.Sum([]byte(APP_SECRET)))
 	s := fmt.Sprintf("%d:%s", APP_ID, secret)
 	basic := base64.StdEncoding.EncodeToString([]byte(s))
 
 	v := make(map[string]interface{})
 	v["uid"] = uid
+	v["device_id"] = fmt.Sprintf("%d", uid)
+	v["user_name"] = fmt.Sprintf("%d", uid)
+	v["platform_id"] = APP_ID
 
 	body, _ := json.Marshal(v)
+	fmt.Println(string(body))
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("POST", url, strings.NewReader(string(body)))
 	req.Header.Set("Authorization", "Basic " + basic)
 	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
 
+	req.Close = true
+
 	res, err := client.Do(req)
 	if err != nil {
 		return ""
 	}
 	defer res.Body.Close()
-	
+
 	b, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return ""
 	}
+
 	obj, err := simplejson.NewJson(b)
-	token, _ := obj.Get("data").Get("token").String()
+	token, _ := obj.Get("token").String()
 	return token
 }
 
+// 发送消息
 func send(uid int64, receiver int64, sem chan int) {
 	ip := net.ParseIP(HOST)
 	addr := net.TCPAddr{ip, PORT, ""}
@@ -81,9 +91,14 @@ func send(uid int64, receiver int64, sem chan int) {
 	}
 	seq := 1
 	auth := &AuthenticationToken{token:token, platform_id:1, device_id:"00000000"}
+
+	// 登录
 	SendMessage(conn, &Message{cmd:MSG_AUTH_TOKEN, seq:seq, version:DEFAULT_VERSION, body:auth})
+
+	// 登录返回
 	ReceiveMessage(conn)
 
+	// 发送 count 次消息
 	send_count := 0
 	for i := 0; i < count; i++ {
 		content := fmt.Sprintf("test....%d", i)
@@ -96,9 +111,9 @@ func send(uid int64, receiver int64, sem chan int) {
 		case <- sem:
 			break
 		case <- time.After(1*time.Second):
-			log.Println("wait send sem timeout")			
+			log.Println("wait send sem timeout")
 		}
-		
+
 		SendMessage(conn, msg)
 
 		var ack *Message
@@ -128,7 +143,7 @@ func send(uid int64, receiver int64, sem chan int) {
 
 func receive(uid int64, limit int,  sem chan int) {
 	sync_key := int64(0)
-	
+
 	ip := net.ParseIP(HOST)
 	addr := net.TCPAddr{ip, PORT, ""}
 
@@ -154,7 +169,7 @@ func receive(uid int64, limit int,  sem chan int) {
 
 	//一次同步的取到的消息数目
 	sync_count := 0
-	
+
 	recv_count := 0
 	syncing := false
 	pending_sync := false
@@ -162,9 +177,9 @@ func receive(uid int64, limit int,  sem chan int) {
 		if limit > 0 {
 			conn.SetDeadline(time.Now().Add(40 * time.Second))
 		} else {
-			conn.SetDeadline(time.Now().Add(400 * time.Second))			
+			conn.SetDeadline(time.Now().Add(400 * time.Second))
 		}
-		
+
 		msg := ReceiveMessage(conn)
 		if msg == nil {
 			log.Println("receive nill message")
@@ -183,7 +198,7 @@ func receive(uid int64, limit int,  sem chan int) {
 		} else if msg.cmd == MSG_IM {
 			//m := msg.body.(*IMMessage)
 			//log.Printf("sender:%d receiver:%d content:%s", m.sender, m.receiver, m.content)
-			
+
 			recv_count += 1
 			if limit > 0 && recv_count <= limit {
 				select {
@@ -195,15 +210,15 @@ func receive(uid int64, limit int,  sem chan int) {
 			}
 
 			sync_count++
-			
+
 			seq++
 			ack := &Message{MSG_ACK, seq, DEFAULT_VERSION, 0, &MessageACK{int32(msg.seq)}}
-			SendMessage(conn, ack)			
+			SendMessage(conn, ack)
 		} else if msg.cmd == MSG_SYNC_BEGIN {
 			sync_count = 0
 			//log.Println("sync begin:", recv_count)
 		} else if msg.cmd == MSG_SYNC_END {
-			syncing = false			
+			syncing = false
 			s := msg.body.(*SyncKey)
 			//log.Println("sync end:", recv_count, s.sync_key, sync_key)			
 			if s.sync_key > sync_key {
@@ -213,16 +228,14 @@ func receive(uid int64, limit int,  sem chan int) {
 				sk := &Message{MSG_SYNC_KEY, seq, DEFAULT_VERSION, 0, &SyncKey{sync_key}}
 				SendMessage(conn, sk)
 			}
-			
+
 			if limit < 0 && sync_count == 0 {
 				break
 			}
-			
+
 			if limit > 0 && recv_count >= limit {
 				break
 			}
-
-			
 
 			if pending_sync {
 				seq++
@@ -231,9 +244,9 @@ func receive(uid int64, limit int,  sem chan int) {
 				syncing = true
 				pending_sync = false
 			}
-			
+
 		} else {
-			log.Println("mmmmmm:", Command(msg.cmd))		
+			log.Println("mmmmmm:", Command(msg.cmd))
 		}
 	}
 	conn.Close()
@@ -273,17 +286,17 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	
+
 	//启动接受者
 	for i := 0; i < concurrent; i++ {
 		go receive(u + int64(concurrent+i), count, sems[i])
 	}
-	
-	time.Sleep(2 * time.Second)	
+
+	time.Sleep(2 * time.Second)
 
 	begin := time.Now().UnixNano()
 	log.Println("begin test:", begin)
-	
+
 	for i := 0; i < concurrent; i++ {
 		go send(u+int64(i), u+int64(i+concurrent), sems[i])
 	}

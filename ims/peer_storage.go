@@ -213,7 +213,7 @@ func (storage *PeerStorage) LoadHistoryMessages(appid int64, receiver int64, syn
 	return messages, last_msgid
 }
 
-
+// 获取最近的 limit 条消息
 func (storage *PeerStorage) LoadLatestMessages(appid int64, receiver int64, limit int) []*EMessage {
 	last_id, _ := storage.GetLastMessageID(appid, receiver)
 	messages := make([]*EMessage, 0, 10)
@@ -221,7 +221,7 @@ func (storage *PeerStorage) LoadLatestMessages(appid int64, receiver int64, limi
 		if last_id == 0 {
 			break
 		}
-
+		// 索引
 		msg := storage.LoadMessage(last_id)
 		if msg == nil {
 			break
@@ -244,11 +244,14 @@ func (storage *PeerStorage) LoadLatestMessages(appid int64, receiver int64, limi
 			device_id = off.device_id
 			prev_msgid = off.prev_msgid
 		}
-		
+
+		// 数据消息
 		msg = storage.LoadMessage(msgid)
 		if msg == nil {
 			break
 		}
+
+		// 非 IM 消息, 继续向前找
 		if msg.cmd != MSG_GROUP_IM && 
 			msg.cmd != MSG_GROUP_NOTIFICATION &&
 			msg.cmd != MSG_IM && 
@@ -258,11 +261,16 @@ func (storage *PeerStorage) LoadLatestMessages(appid int64, receiver int64, limi
 			continue
 		}
 
+		// 记录 IM 消息
 		emsg := &EMessage{msgid:msgid, device_id:device_id, msg:msg}
 		messages = append(messages, emsg)
+
+		// 数量满足则跳出查找
 		if len(messages) >= limit {
 			break
 		}
+
+		// 找前一个
 		last_id = prev_msgid
 	}
 	return messages
